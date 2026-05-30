@@ -372,11 +372,16 @@ const DIMS = [
 ];
 
 /* =========================================  FIREBASE CONFIG  ========================================= */
-const CFG_KEY = 'dmf_firebase_cfg';
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC3fNMVczBuHF8SciZP00SUuyIEnQInqe4",
+  authDomain: "discipleship-tracker-95a84.firebaseapp.com",
+  projectId: "discipleship-tracker-95a84",
+  storageBucket: "discipleship-tracker-95a84.firebasestorage.app",
+  messagingSenderId: "637211816936",
+  appId: "1:637211816936:web:6b97730c67aefc400aaa5d",
+  measurementId: "G-8K0X9TFZ86"
+};
 let db = null;
-
-function loadCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY)||'null');}catch{return null;}}
-function saveCfg(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
 
 function saveConfig(){
   const raw = document.getElementById('cfg-input').value.trim();
@@ -394,7 +399,6 @@ function saveConfig(){
     errEl.innerHTML='<div class="err">Config is missing required fields (apiKey, projectId). Please paste the full firebaseConfig object.</div>';
     return;
   }
-  saveCfg(cfg);
   initFirebase(cfg);
 }
 
@@ -1072,12 +1076,8 @@ async function exportCSV(){
     r.addEventListener('change',()=>{document.getElementById('r-group-wrap').style.display=r.value==='admin'?'none':'block';});
   });
   // Firebase setup
-  const cfg=loadCfg();
-  if(!cfg){
-    document.getElementById('setup-overlay').style.display='flex';
-  } else {
-    initFirebase(cfg);
-  }
+  document.getElementById('setup-overlay').style.display='none';
+  initFirebase(FIREBASE_CONFIG);
 })();
 </script>
 </body>
