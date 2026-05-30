@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>Discipleship Maturity Tracker</title>
+<link href='https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:ital,wght@0,400;0,500;0,600&display=swap' rel='stylesheet'>
+<script src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js'></script>
+<script src='https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js'></script>
+<script src='https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js'></script>
+<style>
+:root{--green:#1a3d2b;--green-mid:#2d6a4f;--green-pale:#eaf4ee;--gold:#b8943f;--gold-light:#f5ead0;--cream:#f8f5ef;--white:#fff;--text:#1c2635;--muted:#6b7280;--border:#e4ddd4;--radius:12px;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text);min-height:100vh;font-size:15px;line-height:1.65;}
+.setup-overlay{position:fixed;inset:0;background:rgba(26,61,43,.97);z-index:9999;display:flex;align-items:center;justify-content:center;padding:1.5rem;overflow-y:auto;}
+.setup-box{background:#fff;border-radius:16px;padding:2rem;max-width:560px;width:100%;}
+.setup-box h2{font-family:'Playfair Display',serif;color:var(--green);margin-bottom:.5rem;}
+.setup-step{display:flex;gap:.875rem;margin:1rem 0;padding:.875rem;background:var(--cream);border-radius:8px;border-left:3px solid var(--gold);}
+.step-num{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--gold);font-weight:600;min-width:22px;line-height:1;}
+.setup-code{background:#1c2635;color:#a7d3b8;padding:.875rem;border-radius:8px;font-size:.78rem;font-family:monospace;margin:.75rem 0;white-space:pre;overflow-x:auto;line-height:1.7;}
+.setup-rules{background:#fef3c7;border-radius:8px;padding:.875rem;font-size:.82rem;color:#78350f;margin-top:.75rem;}
+.hdr{background:var(--green);padding:.875rem 1.5rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+.logo{font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--gold);display:flex;align-items:center;gap:8px;}
+.db-dot{width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block;transition:background .3s;}
+.db-dot.ok{background:#10b981;}.db-dot.err{background:#ef4444;}
+.hdr-right{display:flex;align-items:center;gap:.625rem;}
+.hdr-role{font-size:.7rem;padding:2px 8px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);}
+.hdr-user{font-size:.8rem;color:rgba(255,255,255,.75);}
+.btn-logout{background:transparent;border:1px solid rgba(255,255,255,.25);color:rgba(255,255,255,.7);padding:.3rem .7rem;border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit;}
+.btn-logout:hover{background:rgba(255,255,255,.12);color:#fff;}
+.view{display:none;}.view.active{display:block;animation:fadein .2s ease;}
+@keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+.wrap{max-width:820px;margin:0 auto;padding:2rem 1.5rem;}
+.wrap-wide{max-width:1140px;margin:0 auto;padding:2rem 1.5rem;}
+.card{background:var(--white);border-radius:var(--radius);border:1px solid var(--border);padding:1.5rem;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:.55rem 1.1rem;border-radius:8px;font-family:inherit;font-size:.875rem;font-weight:500;cursor:pointer;border:none;transition:all .15s;}
+.btn-primary{background:var(--green);color:#fff;}.btn-primary:hover{background:var(--green-mid);}
+.btn-gold{background:var(--gold);color:#fff;}.btn-gold:hover{filter:brightness(1.08);}
+.btn-outline{background:transparent;color:var(--green);border:1.5px solid var(--green);}.btn-outline:hover{background:var(--green-pale);}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}.btn-ghost:hover{background:var(--cream);color:var(--text);}
+.btn-danger{background:transparent;color:#dc2626;border:1px solid #fca5a5;}.btn-danger:hover{background:#fef2f2;}
+.btn-sm{padding:.3rem .7rem;font-size:.8rem;}.btn-full{width:100%;justify-content:center;padding:.875rem;}
+h1{font-family:'Playfair Display',serif;font-size:1.9rem;font-weight:600;line-height:1.2;}
+h2{font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:600;}
+h3{font-size:1rem;font-weight:600;}.muted{color:var(--muted);font-size:.875rem;}
+.field{margin-bottom:1rem;}.field label{display:block;font-size:.825rem;font-weight:500;margin-bottom:5px;}
+.field input,.field select,.field textarea{width:100%;padding:.575rem .875rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;font-size:.875rem;background:#fff;color:var(--text);transition:border-color .15s;}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--green);}
+.field textarea{resize:vertical;min-height:80px;line-height:1.6;}.field-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.auth-wrap{min-height:calc(100vh - 56px);display:flex;align-items:center;justify-content:center;padding:2rem 1rem;}
+.auth-box{background:#fff;border-radius:16px;border:1px solid var(--border);padding:2.5rem;width:100%;max-width:420px;}
+.auth-logo{text-align:center;margin-bottom:2rem;}
+.auth-logo-mark{width:54px;height:54px;background:var(--green);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto .875rem;font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--gold);}
+.auth-logo h1{font-size:1.4rem;margin-bottom:.25rem;}
+.auth-tabs{display:flex;border-bottom:2px solid var(--border);margin-bottom:1.75rem;}
+.auth-tab{flex:1;padding:.6rem 0;text-align:center;font-size:.875rem;font-weight:500;color:var(--muted);cursor:pointer;border:none;background:none;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;}
+.auth-tab.active{color:var(--green);border-bottom-color:var(--green);}
+.auth-role-row{display:flex;gap:.5rem;margin-bottom:1rem;}
+.role-opt{flex:1;position:relative;}.role-opt input{position:absolute;opacity:0;width:0;height:0;}
+.role-opt label{display:flex;flex-direction:column;align-items:center;gap:4px;padding:.75rem .4rem;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:500;color:var(--muted);transition:all .15s;text-align:center;}
+.role-opt input:checked+label{border-color:var(--green);background:var(--green-pale);color:var(--green);}
+.role-opt label .ri{font-size:1.2rem;}
+.err{background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;padding:.6rem .875rem;border-radius:8px;font-size:.825rem;margin-bottom:1rem;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.875rem;margin-bottom:1.5rem;}
+.stat-card{background:#fff;border-radius:var(--radius);border:1px solid var(--border);padding:1rem;text-align:center;}
+.stat-num{font-family:'Playfair Display',serif;font-size:2rem;font-weight:600;color:var(--green);line-height:1;margin-bottom:3px;}
+.stat-lbl{font-size:.72rem;color:var(--muted);}
+.tbl{width:100%;border-collapse:collapse;font-size:.85rem;}
+.tbl th{text-align:left;padding:.6rem .875rem;border-bottom:2px solid var(--border);font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);white-space:nowrap;}
+.tbl td{padding:.6rem .875rem;border-bottom:1px solid var(--border);vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}.tbl-hover tbody tr:hover td{background:var(--cream);cursor:pointer;}
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.68rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;}
+.b-e{background:#fef3c7;color:#92400e;}.b-g{background:#dbeafe;color:#1e40af;}.b-m{background:#d1fae5;color:#065f46;}
+.b-self{background:#ede9fe;color:#5b21b6;}.b-leader{background:var(--gold-light);color:#7c5802;}
+.sbar{display:flex;align-items:center;gap:6px;}
+.sbar-track{flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden;}
+.sbar-fill{height:100%;border-radius:3px;}
+.sbar-fill.emerging{background:#f59e0b;}.sbar-fill.growing{background:#3b82f6;}.sbar-fill.mature{background:#10b981;}
+.sbar-val{font-size:.75rem;font-weight:600;color:var(--muted);min-width:26px;}
+.alert{padding:.8rem 1rem;border-radius:8px;font-size:.85rem;margin:1rem 0;}
+.alert-info{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;}
+.alert-warn{background:#fffbeb;color:#92400e;border:1px solid #fde68a;}
+.alert-green{background:var(--green-pale);color:#155240;border:1px solid #a7d3b8;}
+.lik-block{margin-bottom:1.75rem;padding-bottom:1.75rem;border-bottom:1px solid var(--border);}
+.lik-block:last-of-type{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.lik-q{font-size:.9rem;font-weight:500;margin-bottom:.875rem;line-height:1.55;}
+.lik-scale{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
+.lik-opt{position:relative;}.lik-opt input{position:absolute;opacity:0;width:0;height:0;}
+.lik-opt label{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:.7rem .25rem;border:1.5px solid var(--border);border-radius:8px;cursor:pointer;text-align:center;font-size:.7rem;color:var(--muted);transition:all .15s;background:#fff;user-select:none;}
+.lik-opt label .lnum{font-size:1rem;font-weight:600;color:var(--border);margin-bottom:2px;display:block;transition:color .15s;}
+.lik-opt input:checked+label{background:var(--green-pale);border-color:var(--green);color:var(--green);}
+.lik-opt input:checked+label .lnum{color:var(--green);}
+.lik-opt label:hover{border-color:var(--green-mid);background:var(--green-pale);}
+.dim-head{background:var(--green);color:#fff;padding:1.25rem 1.5rem;border-radius:var(--radius) var(--radius) 0 0;}
+.dim-head h2{color:#fff;font-size:1.15rem;margin-bottom:3px;}.dim-head p{color:rgba(255,255,255,.65);font-size:.82rem;}
+.dim-body{background:#fff;border:1px solid var(--border);border-top:none;padding:1.75rem 1.5rem;border-radius:0 0 var(--radius) var(--radius);}
+.seg{display:flex;background:var(--cream);border-radius:8px;padding:3px;border:1px solid var(--border);width:fit-content;}
+.seg-btn{padding:.4rem .875rem;border-radius:6px;font-size:.8rem;font-weight:500;cursor:pointer;border:none;background:none;font-family:inherit;color:var(--muted);transition:all .15s;}
+.seg-btn.active{background:#fff;color:var(--green);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+.group-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:.875rem;}
+.group-card{background:#fff;border-radius:10px;border:1px solid var(--border);padding:1rem;cursor:pointer;transition:all .15s;}
+.group-card:hover{border-color:var(--green);box-shadow:0 2px 8px rgba(0,0,0,.07);}
+.group-name{font-family:'Playfair Display',serif;font-size:.95rem;font-weight:600;margin-bottom:.625rem;display:flex;align-items:center;justify-content:space-between;}
+.gs{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.gs-none{background:#e5e7eb;}.gs-partial{background:#f59e0b;}.gs-full{background:#10b981;}
+.gm{display:flex;justify-content:space-between;font-size:.76rem;margin-bottom:3px;}
+.gm-lbl{color:var(--muted);}.gm-val{font-weight:600;}
+.mini-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:4px;}
+.mini-fill{height:100%;border-radius:2px;background:var(--green-mid);}
+.group-pill{background:var(--gold-light);color:#7c5802;font-size:.75rem;font-weight:600;padding:2px 9px;border-radius:20px;}
+.member-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(235px,1fr));gap:.875rem;}
+.member-card{background:#fff;border-radius:10px;border:1px solid var(--border);padding:1.1rem;cursor:pointer;transition:all .15s;}
+.member-card:hover{border-color:var(--green);box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.mi{width:40px;height:40px;border-radius:50%;background:var(--green-pale);border:1.5px solid #a7d3b8;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.85rem;color:var(--green);}
+.asm-done{color:#059669;font-size:.78rem;font-weight:500;}.asm-pend{color:#d97706;font-size:.78rem;font-weight:500;}.asm-none{color:var(--muted);font-size:.78rem;}
+.chart-area{position:relative;width:100%;}
+.ch300{height:300px;}.ch380{height:380px;}.ch420{height:420px;}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem;}
+.loading{display:flex;align-items:center;justify-content:center;padding:3rem;flex-direction:column;gap:.75rem;color:var(--muted);}
+.spinner{width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.empty{text-align:center;padding:3rem 1rem;color:var(--muted);}
+.empty-icon{font-size:2.5rem;margin-bottom:.75rem;opacity:.4;}
+.cmp-row{display:flex;align-items:center;gap:10px;padding:.6rem 0;border-bottom:1px solid var(--border);}
+.cmp-row:last-child{border-bottom:none;}.cmp-name{font-size:.85rem;font-weight:500;min-width:125px;}
+.live-badge{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:600;color:#059669;background:#d1fae5;padding:2px 10px;border-radius:20px;}
+.live-dot{width:6px;height:6px;border-radius:50%;background:#10b981;animation:pulse 1.5s ease infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:2rem 1rem;}
+.overlay-box{background:#fff;border-radius:16px;width:100%;max-width:780px;padding:1.75rem;position:relative;}
+.overlay-close{position:absolute;top:1rem;right:1rem;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--muted);width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:50%;}
+.overlay-close:hover{background:var(--cream);}
+.prog-wrap{margin-bottom:1.25rem;}
+.prog-meta{display:flex;justify-content:space-between;margin-bottom:6px;font-size:.8rem;color:var(--muted);}
+.prog-track{height:3px;background:var(--border);border-radius:2px;overflow:hidden;}
+.prog-fill{height:100%;background:var(--green);border-radius:2px;transition:width .35s ease;}
+.chk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.5rem;}
+.chk-item{display:flex;align-items:center;gap:6px;font-size:.82rem;cursor:pointer;}
+.chk-item input{accent-color:var(--green);}
+hr{border:none;border-top:1px solid var(--border);margin:1.25rem 0;}
+@media(max-width:580px){.lik-opt label{padding:.45rem .15rem;font-size:.62rem;}h1{font-size:1.5rem;}.field-row{grid-template-columns:1fr;}.hdr{padding:.75rem 1rem;}}
+</style>
+</head>
+<body>
+<!-- SETUP OVERLAY -->
+<div class="setup-overlay" id="setup-overlay" style="display:none;">
+  <div class="setup-box">
+    <h2>🔧 Firebase Setup Required</h2>
+    <p class="muted" style="margin-bottom:1rem;">Follow these steps once to connect your cloud database. Takes about 5 minutes.</p>
+    <div class="setup-step"><div class="step-num">1</div><div><strong>Go to <a href="https://console.firebase.google.com" target="_blank" style="color:var(--green);">console.firebase.google.com</a></strong><br><span class="muted" style="font-size:.82rem;">Sign in with your Google account and click "Add project". Name it e.g. <em>discipleship-tracker</em>. Disable Google Analytics if prompted.</span></div></div>
+    <div class="setup-step"><div class="step-num">2</div><div><strong>Add a Web App</strong><br><span class="muted" style="font-size:.82rem;">In your new project, click the &lt;/&gt; icon. Register the app (any nickname). You'll see a <code>firebaseConfig</code> object — copy it.</span></div></div>
+    <div class="setup-step"><div class="step-num">3</div><div><strong>Enable Firestore</strong><br><span class="muted" style="font-size:.82rem;">In the left sidebar → Build → Firestore Database → Create database → Start in <strong>test mode</strong> → choose a region close to Nigeria (e.g. <em>europe-west1</em>).</span></div></div>
+    <div class="setup-step"><div class="step-num">4</div><div><strong>Paste your config below</strong><br><span class="muted" style="font-size:.82rem;">Replace the placeholder values with your actual config from Step 2.</span></div></div>
+    <div class="setup-code" id="config-display">// Paste your firebaseConfig values here:
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};</div>
+    <div class="field" style="margin-top:1rem;">
+      <label>Paste your firebaseConfig values (JSON object only):</label>
+      <textarea id="cfg-input" style="font-family:monospace;font-size:.78rem;min-height:130px;" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'></textarea>
+    </div>
+    <div class="setup-rules">
+      ⚠ <strong>Before going live, secure your database:</strong> In Firebase Console → Firestore → Rules, replace the default rules with the rules shown in the browser console after clicking Save below (press F12 → Console to see them).
+    </div>
+    <div id="cfg-err"></div>
+    <button class="btn btn-primary btn-full" style="margin-top:1rem;" onclick="saveConfig()">Save & Connect →</button>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header class="hdr" id="hdr">
+  <div class="logo">
+    <span style="color:rgba(255,255,255,.4);">✦</span> Discipleship Maturity Tracker
+    <span class="db-dot" id="db-dot" title="Database connection"></span>
+  </div>
+  <div class="hdr-right" id="hdr-right" style="display:none;">
+    <span class="hdr-role" id="hdr-role"></span>
+    <span class="hdr-user" id="hdr-user"></span>
+    <button class="btn-logout" onclick="logout()">Log out</button>
+  </div>
+</header>
+
+<!-- AUTH -->
+<div id="view-auth" class="view active">
+  <div class="auth-wrap">
+    <div class="auth-box">
+      <div class="auth-logo">
+        <div class="auth-logo-mark">✦</div>
+        <h1>Discipleship Maturity Tracker</h1>
+        <p class="muted" style="font-size:.85rem;">Sign in or create your profile</p>
+      </div>
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign In</button>
+        <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Create Profile</button>
+      </div>
+      <div id="form-login">
+        <div id="login-err"></div>
+        <div class="field"><label>Username</label><input type="text" id="l-user" placeholder="your username" autocomplete="username"></div>
+        <div class="field"><label>Password</label><input type="password" id="l-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+        <button class="btn btn-primary btn-full" onclick="doLogin()">Sign In →</button>
+      </div>
+      <div id="form-register" style="display:none;">
+        <div id="reg-err"></div>
+        <div class="field"><label>Full name</label><input type="text" id="r-name" placeholder="e.g. Samuel Adeyemi"></div>
+        <div class="field-row">
+          <div class="field"><label>Username</label><input type="text" id="r-user" placeholder="choose a username"></div>
+          <div class="field"><label>Password</label><input type="password" id="r-pass" placeholder="••••••••"></div>
+        </div>
+        <div class="field"><label>I am a…</label>
+          <div class="auth-role-row">
+            <div class="role-opt"><input type="radio" name="role" id="role-p" value="participant" checked><label for="role-p"><span class="ri">🙏</span>Participant</label></div>
+            <div class="role-opt"><input type="radio" name="role" id="role-l" value="leader"><label for="role-l"><span class="ri">📖</span>Group Leader</label></div>
+            <div class="role-opt"><input type="radio" name="role" id="role-a" value="admin"><label for="role-a"><span class="ri">🏛</span>Admin</label></div>
+          </div>
+        </div>
+        <div class="field" id="r-group-wrap"><label>Small Group</label>
+          <select id="r-group"><option value="">— Select your group —</option></select>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="doRegister()">Create Profile →</button>
+        <p style="font-size:.78rem;color:var(--muted);text-align:center;margin-top:.875rem;">Admins have full access to all groups and all data.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PARTICIPANT VIEW -->
+<div id="view-participant" class="view">
+  <div class="wrap">
+    <div id="p-hero"></div>
+    <div class="seg" style="margin-bottom:1.25rem;">
+      <button class="seg-btn active" id="pseg-scores" onclick="pTab('scores')">My Scores</button>
+      <button class="seg-btn" id="pseg-leader" onclick="pTab('leader')">Leader View</button>
+      <button class="seg-btn" id="pseg-cmp" onclick="pTab('comparison')">Comparison</button>
+    </div>
+    <div id="p-body"></div>
+  </div>
+</div>
+
+<!-- LEADER VIEW -->
+<div id="view-leader" class="view">
+  <div class="wrap-wide">
+    <div id="l-hero"></div>
+    <div class="seg" style="margin-bottom:1.25rem;">
+      <button class="seg-btn active" id="lseg-members" onclick="lTab('members')">Group Members</button>
+      <button class="seg-btn" id="lseg-overview" onclick="lTab('overview')">Group Overview</button>
+    </div>
+    <div id="l-body"></div>
+  </div>
+</div>
+
+<!-- ADMIN VIEW -->
+<div id="view-admin" class="view">
+  <div class="wrap-wide">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:1.5rem;">
+      <div>
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.25rem;">
+          <h1>Chief Admin Dashboard</h1>
+          <span class="live-badge"><span class="live-dot"></span>Live</span>
+        </div>
+        <p class="muted">All groups · Real-time data from Firebase</p>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">↓ CSV Export</button>
+        <button class="btn btn-ghost btn-sm" onclick="showView('admin-compare')">⇌ Compare Groups</button>
+      </div>
+    </div>
+    <div class="stats-grid" id="a-stats"><div class="loading"><div class="spinner"></div></div></div>
+    <div class="seg" style="margin-bottom:1.25rem;">
+      <button class="seg-btn active" id="aseg-groups" onclick="aTab('groups')">All Groups</button>
+      <button class="seg-btn" id="aseg-members" onclick="aTab('members')">All Participants</button>
+      <button class="seg-btn" id="aseg-recent" onclick="aTab('recent')">Recent Activity</button>
+    </div>
+    <div id="a-body"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- ADMIN COMPARE VIEW -->
+<div id="view-admin-compare" class="view">
+  <div class="wrap-wide">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+      <button class="btn btn-ghost btn-sm" onclick="showView('admin');aTab(_aTab)">← Back</button>
+      <h1>Group Comparison</h1>
+    </div>
+    <div class="card" style="margin-bottom:1.25rem;">
+      <p style="font-size:.875rem;margin-bottom:.875rem;font-weight:500;">Select groups to compare (2 or more):</p>
+      <div class="chk-grid" id="cmp-group-chk"></div>
+      <button class="btn btn-primary btn-sm" style="margin-top:1rem;" onclick="runGroupCompare()">Compare Selected →</button>
+    </div>
+    <div id="cmp-result"></div>
+  </div>
+</div>
+
+<!-- SURVEY VIEW -->
+<div id="view-survey" class="view">
+  <div class="wrap">
+    <div class="prog-wrap">
+      <div class="prog-meta"><span id="prog-label">Dimension 1 of 6</span><span id="prog-dim" style="font-weight:600;color:var(--green);"></span></div>
+      <div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:16.6%;"></div></div>
+    </div>
+    <div style="margin-bottom:1rem;"><button class="btn btn-ghost btn-sm" onclick="cancelSurvey()">← Cancel</button></div>
+    <div id="survey-body"></div>
+    <div style="display:flex;justify-content:space-between;margin-top:1.75rem;">
+      <button class="btn btn-ghost" id="btn-prev" onclick="prevDim()">← Previous</button>
+      <button class="btn btn-primary" id="btn-next" onclick="nextDim()">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMPLETE -->
+<div id="view-complete" class="view">
+  <div class="wrap" style="text-align:center;padding-top:4rem;">
+    <div style="font-size:3rem;margin-bottom:1rem;color:var(--green);">✓</div>
+    <h1>Assessment Saved</h1>
+    <p class="muted" style="margin:.875rem auto 2rem;max-width:400px;" id="complete-msg"></p>
+    <div style="display:flex;gap:.875rem;justify-content:center;flex-wrap:wrap;" id="complete-actions"></div>
+  </div>
+</div>
+
+<!-- REPORT VIEW -->
+<div id="view-report" class="view">
+  <div class="wrap">
+    <div style="margin-bottom:1.5rem;display:flex;gap:.75rem;align-items:center;">
+      <button class="btn btn-ghost btn-sm" onclick="reportBack()">← Back</button>
+      <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print</button>
+    </div>
+    <div id="report-body"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<script>
+/* =========================================  CONSTANTS  ========================================= */
+const GROUPS = Array.from({length:17},(_,i)=>`Group ${i+1}`);
+const ROUNDS = ['Baseline','Round 2 (3 months)','Round 3 (6 months)','Round 4 (9 months)'];
+const LABELS = ['Rarely','Sometimes','Often','Usually','Consistently'];
+const DIMS = [
+  {id:'christlikeness',name:'Christlikeness & Character',short:'Character',
+   selfQs:['I respond to frustration, conflict, or disappointment with patience and grace.','I am honest and consistent in my character whether I am at church, at work, or at home.','I actively pursue humility and am willing to serve in unseen or unglamorous ways.','I take responsibility for my mistakes without making excuses or blaming others.'],
+   leaderQs:['This person responds to frustration, conflict, or disappointment with patience and grace.',"This person's character is consistent whether they are at church, at work, or at home.",'This person pursues humility and willingly serves in unseen or unglamorous ways.','This person takes responsibility for their mistakes without making excuses or blaming others.'],
+   selfOQ:'In which area of character do you sense God is calling you to grow most at the moment?',
+   leaderOQ:'In which area of character do you observe this person needing the most intentional discipleship support?'},
+  {id:'scripture',name:'Scripture & Truth',short:'Scripture',
+   selfQs:['I read or study the Bible personally, outside of Sunday services or group meetings.','When I face a decision or difficulty, I turn to Scripture to seek God\'s guidance.','I can identify and explain key biblical truths that shape how I live my life.','I help others engage with Scripture — whether in conversation, small group, or personal mentoring.'],
+   leaderQs:['This person engages with the Bible personally, outside of Sunday services or group meetings.','This person draws on Scripture when facing decisions or difficulties.','This person demonstrates a working knowledge of key biblical truths that shapes their life.','This person helps others engage meaningfully with Scripture.'],
+   selfOQ:'What is one area of your life where you find it difficult to apply what you know from Scripture? What might help?',
+   leaderOQ:'Where do you observe a gap between this person\'s knowledge of Scripture and how they live?'},
+  {id:'prayer',name:'Prayer & Intimacy with God',short:'Prayer',
+   selfQs:['I maintain a regular personal prayer life outside of public or group prayer.','I pray with expectation that God hears and responds, not merely as a routine.','I intentionally pray for others — including those outside the church and those who have wronged me.','I practise quietness and listening in prayer, not just speaking.'],
+   leaderQs:['This person maintains a regular personal prayer life outside of public or group prayer.','This person prays with evident expectation and faith, not merely as a routine.','This person prays for others consistently, including those outside the church.','This person demonstrates a contemplative, listening dimension to their prayer life.'],
+   selfOQ:'What feels most alive — or most dry — in your prayer life right now? What would help you grow?',
+   leaderOQ:'What do you observe about the quality and depth of this person\'s prayer life?'},
+  {id:'community',name:'Community & Relationships',short:'Community',
+   selfQs:['I have at least one relationship in the church where I am genuinely known — including my struggles.','I give and receive honest, loving feedback within my Christian community.','When I am in conflict with someone, I take steps towards reconciliation rather than avoidance.','I notice and pursue people who are isolated, new, or struggling in my church community.'],
+   leaderQs:['This person has at least one relationship in the church where they are genuinely known, including their struggles.','This person gives and receives honest, loving feedback within the community.','This person takes steps towards reconciliation rather than avoidance when conflict arises.','This person notices and pursues people who are isolated, new, or struggling in the community.'],
+   selfOQ:'In what ways are you genuinely known by others in this church? What makes deep relationship feel difficult for you?',
+   leaderOQ:'How deeply connected is this person to others in the community? What relational patterns do you observe?'},
+  {id:'mission',name:'Mission & Witness',short:'Mission',
+   selfQs:['I have meaningful, ongoing relationships with people who do not follow Jesus.','I naturally speak about my faith in Jesus in everyday conversations, not only in formal settings.','I serve people outside the church — through practical help, hospitality, or community involvement.','I am investing in someone\'s journey toward faith — praying for them, spending time with them, or sharing the gospel with them.'],
+   leaderQs:['This person has meaningful, ongoing relationships with people who do not follow Jesus.','This person speaks naturally about their faith in everyday conversations, not only in formal settings.','This person serves people outside the church in practical, visible ways.','This person is investing in someone\'s journey toward faith.'],
+   selfOQ:'Who in your life outside the church are you praying for and intentionally building a relationship with?',
+   leaderOQ:'What is this person\'s posture toward those outside the church?'},
+  {id:'stewardship',name:'Stewardship & Sacrifice',short:'Stewardship',
+   selfQs:['I give financially to my church and other kingdom purposes on a regular, planned basis.','I serve in my church in a way that genuinely costs me — not only when it is convenient.','I use my skills and gifts to bless others, both inside and outside the church.','I consider how I spend my time and make intentional decisions to prioritise what matters eternally.'],
+   leaderQs:['This person gives financially in a regular, planned way that reflects kingdom priority.','This person serves in ways that genuinely cost them, not only when it is convenient.','This person uses their skills and gifts to bless others, both inside and outside the church.','This person appears to make intentional decisions about time that reflect kingdom priorities.'],
+   selfOQ:'In what area — time, money, or gifts — do you find it hardest to be generous? What do you think holds you back?',
+   leaderOQ:'Where do you observe this person holding back in generosity or sacrifice?'}
+];
+
+/* =========================================  FIREBASE CONFIG  ========================================= */
+const CFG_KEY = 'dmf_firebase_cfg';
+let db = null;
+
+function loadCfg(){try{return JSON.parse(localStorage.getItem(CFG_KEY)||'null');}catch{return null;}}
+function saveCfg(c){localStorage.setItem(CFG_KEY,JSON.stringify(c));}
+
+function saveConfig(){
+  const raw = document.getElementById('cfg-input').value.trim();
+  const errEl = document.getElementById('cfg-err');
+  errEl.innerHTML='';
+  let cfg;
+  try{
+    const clean = raw.replace(/[\u201C\u201D\u2018\u2019]/g,'"');
+    cfg = JSON.parse(clean);
+  } catch(e){
+    errEl.innerHTML='<div class="err">Invalid JSON — check your config and try again. Make sure you only paste the object inside the curly braces.</div>';
+    return;
+  }
+  if(!cfg.apiKey||!cfg.projectId){
+    errEl.innerHTML='<div class="err">Config is missing required fields (apiKey, projectId). Please paste the full firebaseConfig object.</div>';
+    return;
+  }
+  saveCfg(cfg);
+  initFirebase(cfg);
+}
+
+function initFirebase(cfg){
+  try{
+    if(!firebase.apps.length) firebase.initializeApp(cfg);
+    else firebase.app();
+    db = firebase.firestore();
+    db.collection('_ping').limit(1).get()
+      .then(()=>{
+        setDbDot('ok');
+        console.log('%c✓ Firebase connected. Firestore security rules to apply:\n\nrules_version = \'2\';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} {\n      allow read, write: if true;\n    }\n  }\n}','color:#10b981;font-family:monospace;font-size:12px;');
+        document.getElementById('setup-overlay').style.display='none';
+        checkSession();
+      })
+      .catch(e=>{
+        setDbDot('err');
+        document.getElementById('cfg-err').innerHTML=`<div class="err">Connected but Firestore returned an error: ${e.message}. Make sure Firestore is enabled in your Firebase project.</div>`;
+      });
+  } catch(e){
+    setDbDot('err');
+    document.getElementById('cfg-err') && (document.getElementById('cfg-err').innerHTML=`<div class="err">Firebase init error: ${e.message}</div>`);
+  }
+}
+
+function setDbDot(s){const d=document.getElementById('db-dot');d.className='db-dot '+(s==='ok'?'ok':'err');d.title=s==='ok'?'Database connected':'Database error';}
+
+/* =========================================  SESSION  ========================================= */
+const SES_KEY = 'dmf_ses_v3';
+function getSession(){try{return JSON.parse(localStorage.getItem(SES_KEY)||'null');}catch{return null;}}
+function setSession(s){localStorage.setItem(SES_KEY,JSON.stringify(s));}
+function clearSession(){localStorage.removeItem(SES_KEY);}
+const uid = ()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+const today = ()=>new Date().toISOString().split('T')[0];
+
+/* =========================================  AUTH  ========================================= */
+function switchTab(t){
+  document.getElementById('tab-login').classList.toggle('active',t==='login');
+  document.getElementById('tab-register').classList.toggle('active',t==='register');
+  document.getElementById('form-login').style.display=t==='login'?'block':'none';
+  document.getElementById('form-register').style.display=t==='register'?'block':'none';
+}
+
+async function doRegister(){
+  const name=_v('r-name'), username=_v('r-user').toLowerCase().trim(), password=_v('r-pass');
+  const role=document.querySelector('input[name="role"]:checked').value;
+  const group = role==='admin'?'All Groups':_v('r-group');
+  const errEl=document.getElementById('reg-err');
+  errEl.innerHTML='';
+  if(!name) return errEl.innerHTML='<div class="err">Please enter your full name.</div>';
+  if(!username||username.length<3) return errEl.innerHTML='<div class="err">Username must be at least 3 characters.</div>';
+  if(!password||password.length<4) return errEl.innerHTML='<div class="err">Password must be at least 4 characters.</div>';
+  if(role!=='admin'&&!group) return errEl.innerHTML='<div class="err">Please select your small group.</div>';
+  try{
+    const snap = await db.collection('users').where('username','==',username).get();
+    if(!snap.empty) return errEl.innerHTML='<div class="err">That username is already taken. Please choose another.</div>';
+    const id=uid();
+    await db.collection('users').doc(id).set({id,name,username,password,role,group,createdAt:new Date().toISOString()});
+    setSession({userId:id,name,role,group});
+    postAuth();
+  } catch(e){ errEl.innerHTML=`<div class="err">Error: ${e.message}</div>`; }
+}
+
+async function doLogin(){
+  const username=_v('l-user').toLowerCase().trim(), password=_v('l-pass');
+  const errEl=document.getElementById('login-err');
+  errEl.innerHTML='';
+  if(!username||!password) return errEl.innerHTML='<div class="err">Please enter your username and password.</div>';
+  try{
+    const snap = await db.collection('users').where('username','==',username).where('password','==',password).get();
+    if(snap.empty) return errEl.innerHTML='<div class="err">Incorrect username or password.</div>';
+    const u=snap.docs[0].data();
+    setSession({userId:u.id,name:u.name,role:u.role,group:u.group});
+    postAuth();
+  } catch(e){ errEl.innerHTML=`<div class="err">Error: ${e.message}</div>`; }
+}
+
+function logout(){clearSession();location.reload();}
+
+function postAuth(){
+  const s=getSession();
+  document.getElementById('hdr-right').style.display='flex';
+  document.getElementById('hdr-user').textContent=s.name;
+  document.getElementById('hdr-role').textContent={participant:'Participant',leader:'Group Leader',admin:'Chief Admin'}[s.role]||s.role;
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  if(s.role==='participant'){showView('participant');renderParticipant();}
+  else if(s.role==='leader'){showView('leader');renderLeader();}
+  else {showView('admin');renderAdmin();}
+}
+
+function checkSession(){
+  const s=getSession();
+  if(s) postAuth();
+  else showView('auth');
+}
+
+/* =========================================  VIEW ROUTING  ========================================= */
+function showView(v){
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function cancelSurvey(){const s=getSession();if(!s)return showView('auth');postAuth();}
+let _reportBackTo='';
+function reportBack(){
+  const s=getSession();
+  if(!s)return showView('auth');
+  if(_reportBackTo)showView(_reportBackTo);
+  else postAuth();
+}
+
+/* =========================================  PARTICIPANT  ========================================= */
+let _pTab='scores';
+function pTab(t){
+  _pTab=t;
+  ['scores','leader','comparison'].forEach((x,i)=>{
+    document.getElementById('pseg-'+['scores','leader','cmp'][i]).classList.toggle('active',x===t);
+  });
+  renderPBody();
+}
+
+async function renderParticipant(){
+  const s=getSession();
+  const [selfSnap,leaderSnap]=await Promise.all([
+    db.collection('responses').where('type','==','self').where('userId','==',s.userId).orderBy('date','asc').get(),
+    db.collection('responses').where('type','==','leader').where('aboutUserId','==',s.userId).orderBy('date','asc').get()
+  ]);
+  const mySelfs=selfSnap.docs.map(d=>d.data());
+  const myLeaders=leaderSnap.docs.map(d=>d.data());
+  document.getElementById('p-hero').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:1.5rem;">
+      <div>
+        <h1>${s.name}</h1>
+        <div style="display:flex;gap:.5rem;align-items:center;margin-top:.25rem;flex-wrap:wrap;">
+          <span class="group-pill">${s.group}</span>
+          <span class="muted">· ${mySelfs.length} self assessment${mySelfs.length!==1?'s':''}</span>
+          ${myLeaders.length?`<span class="muted">· Leader assessment available</span>`:''}
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="startSelfSurvey()">+ Take Assessment</button>
+    </div>`;
+  window._pSelfs=mySelfs; window._pLeaders=myLeaders;
+  renderPBody();
+}
+
+function renderPBody(){
+  const mySelfs=window._pSelfs||[], myLeaders=window._pLeaders||[];
+  const body=document.getElementById('p-body');
+  if(_pTab==='scores'){
+    if(!mySelfs.length){body.innerHTML=`<div class="empty"><div class="empty-icon">📋</div><p>No self-assessment yet.</p><br><button class="btn btn-primary" onclick="startSelfSurvey()">Take Your First Assessment</button></div>`;return;}
+    const rounds=[...new Set(mySelfs.map(r=>r.round))];
+    const latest=mySelfs[mySelfs.length-1];
+    body.innerHTML=`<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <span style="font-size:.85rem;font-weight:500;">Viewing:</span>
+      <select id="p-round-sel" style="font-size:.85rem;padding:.35rem .7rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;" onchange="renderPScores()">
+        ${rounds.map(r=>`<option value="${r}" ${r===latest.round?'selected':''}>${r}</option>`).join('')}
+      </select></div>
+      <div id="p-scores-inner"></div>`;
+    renderPScores();
+  } else if(_pTab==='leader'){
+    if(!myLeaders.length){body.innerHTML=`<div class="empty"><div class="empty-icon">👁</div><p>Your leader hasn't assessed you yet.</p><p class="muted" style="margin-top:.5rem;font-size:.82rem;">Ask your group leader to complete a leader assessment for you.</p></div>`;return;}
+    const rounds=[...new Set(myLeaders.map(r=>r.round))];
+    const latest=myLeaders[myLeaders.length-1];
+    body.innerHTML=`<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <span style="font-size:.85rem;font-weight:500;">Viewing:</span>
+      <select id="p-leader-sel" style="font-size:.85rem;padding:.35rem .7rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;" onchange="renderPLeader()">
+        ${rounds.map(r=>`<option value="${r}" ${r===latest.round?'selected':''}>${r}</option>`).join('')}
+      </select></div>
+      <div id="p-leader-inner"></div>`;
+    renderPLeader();
+  } else {
+    const mySelfs2=window._pSelfs||[], myLeaders2=window._pLeaders||[];
+    const shared=ROUNDS.filter(r=>mySelfs2.find(x=>x.round===r)&&myLeaders2.find(x=>x.round===r));
+    if(!shared.length){body.innerHTML=`<div class="empty"><div class="empty-icon">⚖️</div><p>No matching rounds for comparison yet.</p><p class="muted" style="margin-top:.5rem;font-size:.82rem;">You and your leader need to complete assessments for the same round.</p></div>`;return;}
+    body.innerHTML=`<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;">
+      <span style="font-size:.85rem;font-weight:500;">Viewing:</span>
+      <select id="p-cmp-sel" style="font-size:.85rem;padding:.35rem .7rem;border:1.5px solid var(--border);border-radius:8px;font-family:inherit;" onchange="renderPCmp()">
+        ${shared.map(r=>`<option>${r}</option>`).join('')}
+      </select></div>
+      <div id="p-cmp-inner"></div>`;
+    renderPCmp();
+  }
+}
+
+function renderPScores(){
+  const r=window._pSelfs.find(x=>x.round===(document.getElementById('p-round-sel')?.value||window._pSelfs.slice(-1)[0]?.round));
+  if(!r)return;
+  const html=`<div class="card"><h2 style="margin-bottom:1.25rem;">Self-Assessment <span class="badge b-self">Self</span></h2>
+    ${DIMS.map(d=>{const sc=dimScore(r.answers,d.id);return `<div class="cmp-row"><span class="cmp-name">${d.short}</span>
+      <div style="flex:1;"><div class="sbar"><div class="sbar-track"><div class="sbar-fill ${stageClass(sc)}" style="width:${pct(sc,20)}%;"></div></div><span class="sbar-val">${sc}/20</span></div></div>
+      ${stageBadge(sc)}</div>`;}).join('')}
+    </div><button class="btn btn-outline btn-sm" style="margin-top:.875rem;" onclick="openReport('${r.id}','participant')">Full Report & Responses</button>`;
+  document.getElementById('p-scores-inner').innerHTML=html;
+}
+
+function renderPLeader(){
+  const r=window._pLeaders.find(x=>x.round===(document.getElementById('p-leader-sel')?.value||window._pLeaders.slice(-1)[0]?.round));
+  if(!r)return;
+  const html=`<div class="card"><h2 style="margin-bottom:.25rem;">Leader's Assessment <span class="badge b-leader">Leader</span></h2>
+    <p class="muted" style="font-size:.82rem;margin-bottom:1.25rem;">Assessed by your group leader · ${r.date}</p>
+    ${DIMS.map(d=>{const sc=dimScore(r.answers,d.id);return `<div class="cmp-row"><span class="cmp-name">${d.short}</span>
+      <div style="flex:1;"><div class="sbar"><div class="sbar-track"><div class="sbar-fill ${stageClass(sc)}" style="width:${pct(sc,20)}%;"></div></div><span class="sbar-val">${sc}/20</span></div></div>
+      ${stageBadge(sc)}</div>`;}).join('')}
+    </div>`;
+  document.getElementById('p-leader-inner').innerHTML=html;
+}
+
+function renderPCmp(){
+  const chosenRound=document.getElementById('p-cmp-sel')?.value||window._pSelfs.slice(-1)[0]?.round;
+  const sR=window._pSelfs.find(x=>x.round===chosenRound);
+  const lR=window._pLeaders.find(x=>x.round===chosenRound);
+  if(!sR||!lR)return;
+  const gaps=DIMS.map(d=>({d,ss:dimScore(sR.answers,d.id),ls:dimScore(lR.answers,d.id)})).map(g=>({...g,gap:g.ss-g.ls,abs:Math.abs(g.ss-g.ls)}));
+  const flagged=gaps.filter(g=>g.abs>=4);
+  let gHtml=flagged.length
+    ? `<div class="alert alert-warn">⚠ ${flagged.length} dimension${flagged.length>1?'s show':'shows'} a gap of 4+ points — worth discussing with your leader.</div>
+       ${flagged.map(g=>`<div style="background:#fffbeb;border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;font-size:.875rem;">
+         <strong>${g.d.name}</strong> — Self: <strong>${g.ss}</strong> · Leader: <strong>${g.ls}</strong> · Gap: <strong style="color:#dc2626;">${g.abs}</strong><br>
+         <span style="color:var(--muted);font-size:.8rem;">${g.gap>0?'You rated yourself higher than your leader did.':'Your leader rated you higher than you rated yourself.'}</span></div>`).join('')}`
+    : `<div class="alert alert-green">✓ Your scores and your leader's are well-aligned — a healthy sign.</div>`;
+  document.getElementById('p-cmp-inner').innerHTML=`
+    <div class="card" style="margin-bottom:1.25rem;"><h2 style="margin-bottom:1.25rem;">Self vs Leader — ${chosenRound}</h2>
+      ${gaps.map(g=>`<div class="cmp-row"><span class="cmp-name">${g.d.short}</span>
+        <div style="flex:1;display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:.7rem;color:#5b21b6;min-width:38px;">Self</span><div class="sbar-track" style="flex:1;"><div class="sbar-fill" style="width:${pct(g.ss,20)}%;background:#7c3aed;"></div></div><span class="sbar-val">${g.ss}</span></div>
+          <div style="display:flex;align-items:center;gap:6px;"><span style="font-size:.7rem;color:#7c5802;min-width:38px;">Leader</span><div class="sbar-track" style="flex:1;"><div class="sbar-fill" style="width:${pct(g.ls,20)}%;background:${g.abs>=4?'#dc2626':'#b8943f'};"></div></div><span class="sbar-val">${g.ls}</span></div>
+        </div>${g.abs>=4?`<span style="font-size:.72rem;font-weight:700;color:#dc2626;min-width:30px;">Δ${g.abs}</span>`:''}</div>`).join('')}
+    </div>${gHtml}`;
+}
+
+/* =========================================  LEADER VIEW  ========================================= */
+let _lTab='members';
+function lTab(t){
+  _lTab=t;
+  document.getElementById('lseg-members').classList.toggle('active',t==='members');
+  document.getElementById('lseg-overview').classList.toggle('active',t==='overview');
+  renderLBody();
+}
+
+async function renderLeader(){
+  const s=getSession();
+  const membersSnap=await db.collection('users').where('group','==',s.group).where('role','==','participant').get();
+  const members=membersSnap.docs.map(d=>d.data());
+  const rsSnap=await db.collection('responses').where('group','==',s.group).get();
+  const rs=rsSnap.docs.map(d=>d.data());
+  document.getElementById('l-hero').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:.75rem;margin-bottom:1.5rem;">
+      <div><h1>${s.name}</h1>
+        <div style="display:flex;gap:.5rem;align-items:center;margin-top:.25rem;flex-wrap:wrap;">
+          <span class="group-pill">${s.group}</span>
+          <span class="muted">· ${members.length} participant${members.length!==1?'s':''}</span>
+        </div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+    </div>`;
+  window._lMembers=members; window._lRs=rs;
+  renderLBody();
+}
+
+function renderLBody(){
+  const members=window._lMembers||[], rs=window._lRs||[];
+  const body=document.getElementById('l-body');
+  if(_lTab==='members'){
+    if(!members.length){body.innerHTML=`<div class="empty"><div class="empty-icon">👥</div><p>No participants have joined this group yet.</p></div>`;return;}
+    body.innerHTML=`<div class="member-grid">${members.map(m=>{
+      const mSelfs=rs.filter(r=>r.type==='self'&&r.userId===m.id);
+      const mLeaders=rs.filter(r=>r.type==='leader'&&r.aboutUserId===m.id);
+      const lSelf=mSelfs.slice(-1)[0], lLeader=mLeaders.slice(-1)[0];
+      const initials=m.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      return `<div class="member-card" onclick="leaderMemberReport('${m.id}')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:.875rem;">
+          <div class="mi">${initials}</div>
+          <div style="min-width:0;"><div style="font-weight:600;font-size:.9rem;">${m.name}</div><div class="muted" style="font-size:.75rem;">${m.group}</div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:.875rem;">
+          <div class="${lSelf?'asm-done':'asm-none'}">${lSelf?`✓ Self — ${lSelf.round}`:'○ No self-assessment'}</div>
+          <div class="${lLeader?'asm-done':'asm-pend'}">${lLeader?`✓ Leader assessed — ${lLeader.round}`:'! Leader assessment pending'}</div>
+        </div>
+        ${!lLeader
+          ?`<button class="btn btn-gold btn-sm btn-full" onclick="event.stopPropagation();startLeaderSurvey('${m.id}','${m.name}','${m.group}')">Assess ${m.name.split(' ')[0]} →</button>`
+          :`<button class="btn btn-outline btn-sm btn-full" onclick="event.stopPropagation();startLeaderSurvey('${m.id}','${m.name}','${m.group}')">Re-assess</button>`}
+      </div>`;
+    }).join('')}</div>`;
+  } else {
+    if(!members.length){body.innerHTML=`<div class="empty"><div class="empty-icon">📊</div><p>No participants yet.</p></div>`;return;}
+    body.innerHTML=`<div class="chart-grid" id="l-chart-grid"></div>`;
+    setTimeout(()=>buildLeaderCharts(members,rs),60);
+  }
+}
+
+async function leaderMemberReport(userId){
+  const rs=window._lRs||[];
+  const r=rs.filter(x=>x.userId===userId||x.aboutUserId===userId).slice(-1)[0];
+  if(!r){alert('No assessments found for this participant yet.');return;}
+  _reportBackTo='leader';
+  openReport(r.id,'leader');
+}
+
+function buildLeaderCharts(members,rs){
+  const grid=document.getElementById('l-chart-grid');
+  if(!grid)return;
+  grid.innerHTML='';
+  members.forEach(m=>{
+    const sR=rs.filter(r=>r.type==='self'&&r.userId===m.id).slice(-1)[0];
+    const lR=rs.filter(r=>r.type==='leader'&&r.aboutUserId===m.id).slice(-1)[0];
+    if(!sR&&!lR)return;
+    const cid='lc_'+m.id;
+    const initials=m.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+    const card=document.createElement('div');card.className='card';
+    card.innerHTML=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:.875rem;">
+        <div class="mi">${initials}</div>
+        <div><div style="font-weight:600;">${m.name}</div>
+        <div class="muted" style="font-size:.75rem;">${sR?`Self: ${sR.round}`:'No self'} ${lR?`· Leader: ${lR.round}`:''}</div></div></div>
+      <div class="chart-area ch300"><canvas id="${cid}"></canvas></div>
+      <button class="btn btn-ghost btn-sm btn-full" style="margin-top:.875rem;" onclick="_reportBackTo='leader';openReport('${(sR||lR).id}','leader')">Full Report</button>`;
+    grid.appendChild(card);
+    setTimeout(()=>drawRadar(cid,sR,lR),80);
+  });
+}
+
+/* =========================================  ADMIN VIEW  ========================================= */
+let _aTab='groups', _allRs=[], _allUsers=[];
+function aTab(t){
+  _aTab=t;
+  ['groups','members','recent'].forEach(x=>document.getElementById('aseg-'+x).classList.toggle('active',x===t));
+  renderABody();
+}
+
+async function renderAdmin(){
+  document.getElementById('a-stats').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  document.getElementById('a-body').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const [usersSnap,rsSnap]=await Promise.all([
+    db.collection('users').get(),
+    db.collection('responses').orderBy('date','desc').get()
+  ]);
+  _allUsers=usersSnap.docs.map(d=>d.data());
+  _allRs=rsSnap.docs.map(d=>d.data());
+  const participants=_allUsers.filter(u=>u.role==='participant');
+  const leaders=_allUsers.filter(u=>u.role==='leader');
+  const activeGroups=new Set(participants.map(u=>u.group));
+  const assessed=new Set(_allRs.filter(r=>r.type==='self').map(r=>r.userId)).size;
+  document.getElementById('a-stats').innerHTML=`
+    <div class="stat-card"><div class="stat-num">${participants.length}</div><div class="stat-lbl">Participants</div></div>
+    <div class="stat-card"><div class="stat-num">${leaders.length}</div><div class="stat-lbl">Leaders</div></div>
+    <div class="stat-card"><div class="stat-num">${activeGroups.size}</div><div class="stat-lbl">Active Groups</div></div>
+    <div class="stat-card"><div class="stat-num">${_allRs.filter(r=>r.type==='self').length}</div><div class="stat-lbl">Self Assessments</div></div>
+    <div class="stat-card"><div class="stat-num">${_allRs.filter(r=>r.type==='leader').length}</div><div class="stat-lbl">Leader Assessments</div></div>
+    <div class="stat-card"><div class="stat-num">${assessed}</div><div class="stat-lbl">Participants Assessed</div></div>`;
+  setupGroupCmpChk();
+  renderABody();
+  // Live listener for new submissions
+  db.collection('responses').orderBy('date','desc').onSnapshot(snap=>{
+    const newRs=snap.docs.map(d=>d.data());
+    if(newRs.length!==_allRs.length){_allRs=newRs;renderAdmin();}
+  });
+}
+
+function renderABody(){
+  const body=document.getElementById('a-body');
+  if(_aTab==='groups') renderAGroups(body);
+  else if(_aTab==='members') renderAMembers(body);
+  else renderARecent(body);
+}
+
+function renderAGroups(body){
+  const groupStats=GROUPS.map(g=>{
+    const members=_allUsers.filter(u=>u.role==='participant'&&u.group===g);
+    const selfRs=_allRs.filter(r=>r.type==='self'&&r.group===g);
+    const leaderRs=_allRs.filter(r=>r.type==='leader'&&r.group===g);
+    const assessed=new Set(selfRs.map(r=>r.userId)).size;
+    const avgScores=DIMS.map(d=>{
+      const latest=selfRs.reduce((acc,r)=>{
+        if(!acc[r.userId]||r.date>acc[r.userId].date) acc[r.userId]=r; return acc;},{});
+      const vals=Object.values(latest).map(r=>dimScore(r.answers,d.id));
+      return vals.length?Math.round(vals.reduce((a,b)=>a+b,0)/vals.length):0;
+    });
+    const overallAvg=avgScores.length?Math.round(avgScores.reduce((a,b)=>a+b,0)/avgScores.length):0;
+    const completionPct=members.length?Math.round(assessed/members.length*100):0;
+    const statusClass=!members.length?'gs-none':completionPct>=80?'gs-full':'gs-partial';
+    return {g,members,selfRs,leaderRs,assessed,overallAvg,completionPct,statusClass,avgScores};
+  }).filter(g=>g.members.length>0||g.selfRs.length>0);
+
+  if(!groupStats.length){body.innerHTML=`<div class="empty"><div class="empty-icon">🏛</div><p>No participants have registered yet.</p></div>`;return;}
+  body.innerHTML=`<div class="group-grid" id="a-group-grid">${groupStats.map(g=>`
+    <div class="group-card" onclick="adminGroupDrill('${g.g}')">
+      <div class="group-name">${g.g}<span class="gs ${g.statusClass}"></span></div>
+      <div class="gm"><span class="gm-lbl">Participants</span><span class="gm-val">${g.members.length}</span></div>
+      <div class="gm"><span class="gm-lbl">Assessed</span><span class="gm-val">${g.assessed}</span></div>
+      <div class="gm"><span class="gm-lbl">Avg Score</span><span class="gm-val">${g.overallAvg?g.overallAvg+'/20':'—'}</span></div>
+      <div class="gm"><span class="gm-lbl">Completion</span><span class="gm-val">${g.completionPct}%</span></div>
+      <div class="mini-bar"><div class="mini-fill" style="width:${g.completionPct}%;"></div></div>
+    </div>`).join('')}</div>`;
+}
+
+function adminGroupDrill(group){
+  const members=_allUsers.filter(u=>u.role==='participant'&&u.group===group);
+  const groupRs=_allRs.filter(r=>r.group===group);
+  const modal=document.createElement('div');modal.className='overlay';modal.id='group-modal';
+  const leaderRec=_allUsers.find(u=>u.role==='leader'&&u.group===group);
+  let html=`<div class="overlay-box">
+    <button class="overlay-close" onclick="document.getElementById('group-modal').remove()">✕</button>
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+      <h2>${group}</h2>
+      ${leaderRec?`<span class="muted" style="font-size:.82rem;">Leader: ${leaderRec.name}</span>`:'<span class="badge b-e">No leader registered</span>'}
+    </div>`;
+  if(!members.length){html+=`<p class="muted">No participants yet.</p></div></div>`;modal.innerHTML=html;document.body.appendChild(modal);return;}
+  html+=`<table class="tbl"><thead><tr><th>Name</th><th>Self</th><th>Leader</th>${DIMS.map(d=>`<th>${d.short}</th>`).join('')}</tr></thead><tbody>`;
+  members.forEach(m=>{
+    const lSelf=groupRs.filter(r=>r.type==='self'&&r.userId===m.id).slice(-1)[0];
+    const lLeader=groupRs.filter(r=>r.type==='leader'&&r.aboutUserId===m.id).slice(-1)[0];
+    const ref=lSelf||lLeader;
+    html+=`<tr ${ref?`style="cursor:pointer;" onclick="_reportBackTo='admin';openReport('${ref.id}','admin')"`:''}><td><strong>${m.name}</strong></td>
+      <td><span class="${lSelf?'asm-done':'asm-none'}">${lSelf?`✓ ${lSelf.round}`:'—'}</span></td>
+      <td><span class="${lLeader?'asm-done':'asm-pend'}">${lLeader?`✓ ${lLeader.round}`:'Pending'}</span></td>
+      ${DIMS.map(d=>{const sc=lSelf?dimScore(lSelf.answers,d.id):null;return `<td>${sc!==null?`<div class="sbar"><div class="sbar-track"><div class="sbar-fill ${stageClass(sc)}" style="width:${pct(sc,20)}%;"></div></div><span class="sbar-val">${sc}</span></div>`:'<span class="muted">—</span>'}</td>`}).join('')}
+    </tr>`;
+  });
+  html+=`</tbody></table></div></div>`;
+  modal.innerHTML=html;document.body.appendChild(modal);
+}
+
+function renderAMembers(body){
+  const participants=_allUsers.filter(u=>u.role==='participant');
+  if(!participants.length){body.innerHTML=`<div class="empty"><div class="empty-icon">👥</div><p>No participants registered yet.</p></div>`;return;}
+  let tbl=`<div class="card" style="overflow-x:auto;"><table class="tbl tbl-hover"><thead><tr>
+    <th>Name</th><th>Group</th><th>Round</th>${DIMS.map(d=>`<th>${d.short}</th>`).join('')}<th>Type</th><th>Date</th>
+  </tr></thead><tbody>`;
+  const shownRs=_allRs.slice(0,150);
+  shownRs.forEach(r=>{
+    const scores=DIMS.map(d=>dimScore(r.answers,d.id));
+    tbl+=`<tr onclick="_reportBackTo='admin';openReport('${r.id}','admin')">
+      <td><strong>${r.userName}</strong></td>
+      <td><span class="group-pill">${r.group}</span></td>
+      <td style="font-size:.8rem;">${r.round||'Baseline'}</td>
+      ${scores.map(sc=>`<td><div class="sbar"><div class="sbar-track"><div class="sbar-fill ${stageClass(sc)}" style="width:${pct(sc,20)}%;"></div></div><span class="sbar-val">${sc}</span></div></td>`).join('')}
+      <td><span class="badge ${r.type==='self'?'b-self':'b-leader'}">${r.type==='self'?'Self':'Leader'}</span></td>
+      <td style="font-size:.78rem;color:var(--muted);">${r.date}</td>
+    </tr>`;
+  });
+  body.innerHTML=tbl+`</tbody></table>${_allRs.length>150?`<p class="muted" style="padding:.75rem;font-size:.8rem;">Showing 150 of ${_allRs.length} assessments. Use CSV export for full data.</p>`:''}</div>`;
+}
+
+function renderARecent(body){
+  const recent=_allRs.slice(0,30);
+  if(!recent.length){body.innerHTML=`<div class="empty"><div class="empty-icon">🕐</div><p>No activity yet.</p></div>`;return;}
+  body.innerHTML=`<div class="card"><h2 style="margin-bottom:1rem;">Recent Submissions</h2>
+    <table class="tbl tbl-hover"><thead><tr><th>Participant</th><th>Group</th><th>Type</th><th>Round</th><th>Avg Score</th><th>Date</th></tr></thead><tbody>
+    ${recent.map(r=>{
+      const scores=DIMS.map(d=>dimScore(r.answers,d.id));
+      const avg=(scores.reduce((a,b)=>a+b,0)/6).toFixed(1);
+      return `<tr onclick="_reportBackTo='admin';openReport('${r.id}','admin')">
+        <td><strong>${r.userName}</strong></td><td><span class="group-pill">${r.group}</span></td>
+        <td><span class="badge ${r.type==='self'?'b-self':'b-leader'}">${r.type==='self'?'Self':'Leader'}</span></td>
+        <td style="font-size:.8rem;">${r.round||'Baseline'}</td><td style="font-weight:600;">${avg}/20</td>
+        <td style="font-size:.78rem;color:var(--muted);">${r.date}</td></tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+/* =========================================  GROUP COMPARISON  ========================================= */
+function setupGroupCmpChk(){
+  const activeGroups=GROUPS.filter(g=>_allUsers.some(u=>u.role==='participant'&&u.group===g));
+  const el=document.getElementById('cmp-group-chk');
+  if(!el)return;
+  el.innerHTML=activeGroups.map(g=>`<label class="chk-item"><input type="checkbox" value="${g}"> ${g}</label>`).join('');
+}
+
+function runGroupCompare(){
+  const selected=Array.from(document.querySelectorAll('#cmp-group-chk input:checked')).map(i=>i.value);
+  if(selected.length<2){alert('Please select at least 2 groups to compare.');return;}
+  const result=document.getElementById('cmp-result');
+  result.innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const groupData=selected.map(g=>{
+    const latest=_allRs.filter(r=>r.type==='self'&&r.group===g).reduce((acc,r)=>{
+      if(!acc[r.userId]||r.date>acc[r.userId].date) acc[r.userId]=r; return acc;},{});
+    const vals=Object.values(latest);
+    const dimAvgs=DIMS.map(d=>{
+      const scores=vals.map(r=>dimScore(r.answers,d.id));
+      return scores.length?+(scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1):0;
+    });
+    return {g,count:vals.length,dimAvgs};
+  });
+  const cid='cmp-chart-'+Date.now();
+  result.innerHTML=`<div class="card"><h2 style="margin-bottom:.5rem;">Group Comparison — Latest Baseline Scores</h2>
+    <p class="muted" style="font-size:.82rem;margin-bottom:1.25rem;">Average self-assessment scores across the six dimensions</p>
+    <div class="chart-area ch420"><canvas id="${cid}"></canvas></div></div>
+    <div class="card" style="margin-top:1.25rem;overflow-x:auto;">
+      <table class="tbl"><thead><tr><th>Group</th><th>Participants</th>${DIMS.map(d=>`<th>${d.short}</th>`).join('')}</tr></thead>
+      <tbody>${groupData.map(g=>`<tr><td><strong>${g.g}</strong></td><td>${g.count}</td>
+        ${g.dimAvgs.map((sc,i)=>`<td>${stageBadge(sc)}<span style="font-size:.78rem;margin-left:4px;">${sc}</span></td>`).join('')}</tr>`).join('')}
+      </tbody></table></div>`;
+  setTimeout(()=>{
+    const canvas=document.getElementById(cid);if(!canvas)return;
+    const colors=['#1a3d2b','#b8943f','#3b82f6','#ef4444','#8b5cf6','#10b981','#f59e0b','#ec4899'];
+    new Chart(canvas,{type:'radar',data:{
+      labels:DIMS.map(d=>d.short),
+      datasets:groupData.map((g,i)=>({
+        label:g.g,data:g.dimAvgs,
+        backgroundColor:`${colors[i%colors.length]}22`,
+        borderColor:colors[i%colors.length],borderWidth:2,
+        pointBackgroundColor:colors[i%colors.length],pointRadius:4
+      }))
+    },options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:11},padding:14}}},
+      scales:{r:{min:0,max:20,ticks:{stepSize:5,font:{size:9},backdropColor:'transparent',color:'#6b7280'},
+        grid:{color:'rgba(0,0,0,.06)'},angleLines:{color:'rgba(0,0,0,.06)'},
+        pointLabels:{font:{size:11},color:'#1c2635'}}}}});
+  },80);
+}
+
+/* =========================================  SURVEY  ========================================= */
+let _curDim=0,_answers={},_sMeta={};
+const ROUND_PROMPT=()=>{
+  const r=prompt('Which round?\n'+ROUNDS.map((r,i)=>`${i+1}. ${r}`).join('\n')+'\n\nEnter 1–4 (or press Cancel to abort):');
+  if(!r)return null;
+  return ROUNDS[(parseInt(r)||1)-1]||ROUNDS[0];
+};
+
+function startSelfSurvey(){
+  const s=getSession();
+  const round=ROUND_PROMPT(); if(!round)return;
+  _sMeta={type:'self',userId:s.userId,userName:s.name,group:s.group,round,date:today()};
+  _answers={};DIMS.forEach(d=>{_answers[d.id]={scores:[null,null,null,null],open:''};});
+  _curDim=0;showView('survey');renderDim();
+}
+function startLeaderSurvey(aboutUserId,aboutName,aboutGroup){
+  const s=getSession();
+  const round=ROUND_PROMPT(); if(!round)return;
+  _sMeta={type:'leader',userId:s.userId,byName:s.name,aboutUserId,userName:aboutName,group:aboutGroup,round,date:today()};
+  _answers={};DIMS.forEach(d=>{_answers[d.id]={scores:[null,null,null,null],open:''};});
+  _curDim=0;showView('survey');renderDim();
+}
+
+function renderDim(){
+  const d=DIMS[_curDim];
+  const isL=_sMeta.type==='leader';
+  const qs=isL?d.leaderQs:d.selfQs;
+  const oq=isL?d.leaderOQ:d.selfOQ;
+  const saved=_answers[d.id];
+  document.getElementById('prog-label').textContent=`Dimension ${_curDim+1} of ${DIMS.length}`;
+  document.getElementById('prog-dim').textContent=d.name;
+  document.getElementById('prog-fill').style.width=Math.round((_curDim+1)/DIMS.length*100)+'%';
+  document.getElementById('btn-prev').style.visibility=_curDim===0?'hidden':'visible';
+  document.getElementById('btn-next').textContent=_curDim===DIMS.length-1?'Submit ✓':'Next →';
+  let html=`<div class="dim-head"><h2>${d.name}</h2><p>${isL?`Leader Assessment for ${_sMeta.userName}`:`Self Assessment · ${_sMeta.userName}`} · ${_sMeta.round}</p></div><div class="dim-body">`;
+  qs.forEach((q,i)=>{
+    html+=`<div class="lik-block"><p class="lik-q">${i+1}. ${q}</p><div class="lik-scale">`;
+    LABELS.forEach((lbl,vi)=>{const sc=vi+1;html+=`<div class="lik-opt"><input type="radio" name="${d.id}_${i}" id="${d.id}_${i}_${sc}" value="${sc}" ${saved.scores[i]===sc?'checked':''} onchange="recScore('${d.id}',${i},${sc})"><label for="${d.id}_${i}_${sc}"><span class="lnum">${sc}</span>${lbl}</label></div>`;});
+    html+=`</div></div>`;
+  });
+  html+=`<div class="field" style="margin-top:1.25rem;"><label>${oq}</label><textarea id="oa-${d.id}" placeholder="Share your reflection here..." onchange="recOpen('${d.id}',this.value)">${saved.open}</textarea></div></div>`;
+  document.getElementById('survey-body').innerHTML=html;
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function recScore(dimId,qi,sc){_answers[dimId].scores[qi]=sc;}
+function recOpen(dimId,txt){_answers[dimId].open=txt;}
+function saveOA(){const d=DIMS[_curDim];const el=document.getElementById('oa-'+d.id);if(el)_answers[d.id].open=el.value;}
+function nextDim(){saveOA();if(_answers[DIMS[_curDim].id].scores.some(s=>s===null)){alert('Please answer all four questions.');return;}if(_curDim<DIMS.length-1){_curDim++;renderDim();}else{submitSurvey();}}
+function prevDim(){saveOA();if(_curDim>0){_curDim--;renderDim();}}
+
+async function submitSurvey(){
+  const id=uid();
+  const r={id,..._sMeta,answers:_answers};
+  try{
+    await db.collection('responses').doc(id).set(r);
+    const s=getSession();
+    const msg=document.getElementById('complete-msg');
+    const acts=document.getElementById('complete-actions');
+    if(s.role==='participant'){
+      msg.textContent='Your self-assessment has been saved to the cloud. Your leader can now review it.';
+      acts.innerHTML=`<button class="btn btn-outline" onclick="showView('participant');renderParticipant();">View My Scores</button><button class="btn btn-primary" onclick="showView('participant');renderParticipant();">Dashboard</button>`;
+    } else {
+      msg.textContent=`Assessment for ${_sMeta.userName} saved to the cloud.`;
+      acts.innerHTML=`<button class="btn btn-primary" onclick="showView('leader');renderLeader();">Back to Group</button>`;
+    }
+    showView('complete');
+  } catch(e){alert('Save failed: '+e.message);}
+}
+
+/* =========================================  REPORT  ========================================= */
+async function openReport(responseId, fromView){
+  _reportBackTo=fromView||'admin';
+  showView('report');
+  document.getElementById('report-body').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const snap=await db.collection('responses').doc(responseId).get();
+  if(!snap.exists){document.getElementById('report-body').innerHTML='<p class="muted">Report not found.</p>';return;}
+  const r=snap.data();
+  const uid2=r.type==='self'?r.userId:r.aboutUserId;
+  const [selfSnap,leaderSnap]=await Promise.all([
+    db.collection('responses').where('type','==','self').where('userId','==',uid2).where('round','==',r.round).get(),
+    db.collection('responses').where('type','==','leader').where('aboutUserId','==',uid2).where('round','==',r.round).get()
+  ]);
+  const sR=selfSnap.docs[0]?.data(), lR=leaderSnap.docs[0]?.data();
+  let dimRows=DIMS.map(d=>{const sc=dimScore(r.answers,d.id);return `<div style="margin-bottom:1rem;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;"><span style="font-weight:500;font-size:.9rem;">${d.name}</span><div style="display:flex;gap:8px;align-items:center;"><span style="font-weight:600;">${sc}/20</span>${stageBadge(sc)}</div></div><div class="sbar-track" style="height:7px;"><div class="sbar-fill ${stageClass(sc)}" style="width:${pct(sc,20)}%;"></div></div></div>`;}).join('');
+  let openRows=DIMS.map(d=>{const ans=r.answers[d.id]?.open||'';const oq=r.type==='leader'?d.leaderOQ:d.selfOQ;return `<div style="margin-bottom:1.25rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border);"><div style="font-size:.78rem;font-weight:600;color:var(--green);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;">${d.name}</div><div style="font-size:.82rem;color:var(--muted);font-style:italic;margin-bottom:6px;">${oq}</div><div style="font-size:.9rem;">${ans||'<em style="color:var(--muted);">No response provided</em>'}</div></div>`;}).join('');
+  let gapHtml='';
+  if(sR&&lR){
+    const gaps=DIMS.map(d=>({d,ss:dimScore(sR.answers,d.id),ls:dimScore(lR.answers,d.id)})).map(g=>({...g,gap:g.ss-g.ls,abs:Math.abs(g.ss-g.ls)}));
+    const fl=gaps.filter(g=>g.abs>=4);
+    gapHtml=fl.length
+      ?`<div class="card" style="margin-top:1.25rem;border-color:#fde68a;"><h2 style="margin-bottom:1rem;">Gap Analysis</h2><div class="alert alert-warn" style="margin-top:0;">⚠ ${fl.length} dimension${fl.length>1?'s':''} show a gap of 4+ points.</div>${fl.map(g=>`<div style="background:#fffbeb;border-radius:8px;padding:.75rem 1rem;margin-bottom:.5rem;font-size:.875rem;"><strong>${g.d.name}</strong> — Self: <strong>${g.ss}</strong> · Leader: <strong>${g.ls}</strong> · Gap: <strong style="color:#dc2626;">${g.abs}</strong><br><span style="color:var(--muted);font-size:.8rem;">${g.gap>0?"Self scored higher than leader.":"Leader scored higher than self."}</span></div>`).join('')}</div>`
+      :`<div class="alert alert-green" style="margin-top:1.25rem;">✓ Self and leader scores are well-aligned for this round.</div>`;
+  }
+  let progressHtml='';
+  if(r.type==='self'){
+    const allSelfSnap=await db.collection('responses').where('type','==','self').where('userId','==',uid2).orderBy('date','asc').get();
+    const allSelfs=allSelfSnap.docs.map(d=>d.data());
+    if(allSelfs.length>1){
+      const cid='prog-chart-'+Date.now();
+      progressHtml=`<div class="card" style="margin-top:1.25rem;"><h2 style="margin-bottom:.5rem;">Progress Over Rounds</h2><div class="chart-area ch300"><canvas id="${cid}"></canvas></div></div>`;
+      setTimeout(()=>{
+        const canvas=document.getElementById(cid);if(!canvas)return;
+        new Chart(canvas,{type:'line',data:{
+          labels:allSelfs.map(x=>x.round),
+          datasets:DIMS.map((d,i)=>({
+            label:d.short,
+            data:allSelfs.map(x=>dimScore(x.answers,d.id)),
+            borderColor:['#1a3d2b','#b8943f','#3b82f6','#10b981','#8b5cf6','#ef4444'][i],
+            backgroundColor:'transparent',borderWidth:2,pointRadius:4,tension:.3
+          }))
+        },options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10},padding:10}}},
+          scales:{y:{min:0,max:20,ticks:{stepSize:5}},x:{grid:{display:false}}}}});
+      },80);
+    }
+  }
+  document.getElementById('report-body').innerHTML=`
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1.5rem;">
+      <div><h1>${r.userName}</h1>
+      <p class="muted"><span class="group-pill">${r.group}</span> &nbsp;<span class="badge ${r.type==='self'?'b-self':'b-leader'}">${r.type==='self'?'Self':'Leader'} Assessment</span> &nbsp;·&nbsp; ${r.round||'Baseline'} &nbsp;·&nbsp; ${r.date}${r.byName?`<br>Assessed by: ${r.byName}`:''}</p></div>
+    </div>
+    <div class="card"><h2 style="margin-bottom:1.25rem;">Dimension Scores</h2>${dimRows}</div>
+    ${gapHtml}${progressHtml}
+    <div class="card" style="margin-top:1.25rem;"><h2 style="margin-bottom:1.25rem;">Open Responses</h2>${openRows}</div>
+    <div class="card" style="margin-top:1.25rem;background:var(--green-pale);border-color:#a7d3b8;"><h3 style="color:var(--green);margin-bottom:.5rem;">Pastoral Roadmap</h3><p style="font-size:.875rem;color:#3a6650;">Begin every follow-up with affirmation. Identify one or two dimensions for focused attention this season. Agree on practical next steps. <strong>Review again in 3–6 months.</strong></p></div>`;
+}
+
+/* =========================================  UTILS & CHARTS  ========================================= */
+const dimScore=(answers,id)=>{if(!answers||!answers[id])return 0;return answers[id].scores.reduce((a,b)=>a+(b||0),0);};
+const stage=s=>s<=10?'Emerging':s<=16?'Growing':'Mature';
+const stageClass=s=>stage(s).toLowerCase();
+const stageBadge=s=>{const st=stage(s);const cls={Emerging:'b-e',Growing:'b-g',Mature:'b-m'}[st];return `<span class="badge ${cls}">${st}</span>`;};
+const pct=(v,max)=>Math.round(v/max*100);
+const _v=id=>(document.getElementById(id)||{}).value||'';
+const dl=(blob,name)=>{const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=name;a.click();URL.revokeObjectURL(u);};
+
+let _chartInstances={};
+function drawRadar(cid, sR, lR){
+  if(_chartInstances[cid])try{_chartInstances[cid].destroy();}catch(e){}
+  const canvas=document.getElementById(cid);if(!canvas)return;
+  const datasets=[];
+  if(sR)datasets.push({label:'Self',data:DIMS.map(d=>dimScore(sR.answers,d.id)),backgroundColor:'rgba(26,61,43,.12)',borderColor:'#1a3d2b',borderWidth:2,pointBackgroundColor:'#1a3d2b',pointRadius:4});
+  if(lR)datasets.push({label:'Leader',data:DIMS.map(d=>dimScore(lR.answers,d.id)),backgroundColor:'rgba(184,148,63,.12)',borderColor:'#b8943f',borderWidth:2,borderDash:[5,5],pointBackgroundColor:'#b8943f',pointRadius:4});
+  _chartInstances[cid]=new Chart(canvas,{type:'radar',data:{labels:DIMS.map(d=>d.short),datasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{boxWidth:10,font:{size:10},padding:10}}},scales:{r:{min:0,max:20,ticks:{stepSize:5,font:{size:9},backdropColor:'transparent',color:'#6b7280'},grid:{color:'rgba(0,0,0,.06)'},angleLines:{color:'rgba(0,0,0,.06)'},pointLabels:{font:{size:11},color:'#1c2635'}}}}});
+}
+
+async function exportCSV(){
+  let rs;
+  try{
+    const snap=await db.collection('responses').orderBy('date','desc').get();
+    rs=snap.docs.map(d=>d.data());
+  } catch(e){alert('Export failed: '+e.message);return;}
+  if(!rs.length){alert('No data to export yet.');return;}
+  const headers=['ID','Name','Group','Type','Leader/By','Round','Date',...DIMS.flatMap(d=>[`${d.short} Score`,`${d.short} Stage`]),...DIMS.map(d=>`${d.short} Open`)];
+  const rows=rs.map(r=>[r.id,r.userName,r.group,r.type,r.byName||'',r.round||'Baseline',r.date,...DIMS.flatMap(d=>{const sc=dimScore(r.answers,d.id);return[sc,stage(sc)];}), ...DIMS.map(d=>`"${(r.answers[d.id]?.open||'').replace(/"/g,'""')}"`)]);
+  dl(new Blob([[headers,...rows].map(r=>r.join(',')).join('\n')],{type:'text/csv'}),'assessments-'+today()+'.csv');
+}
+
+/* =========================================  INIT  ========================================= */
+(function init(){
+  // Populate groups dropdown
+  const gsel=document.getElementById('r-group');
+  GROUPS.forEach(g=>{const o=document.createElement('option');o.value=g;o.textContent=g;gsel.appendChild(o);});
+  // Role toggle hides group for admin
+  document.querySelectorAll('input[name="role"]').forEach(r=>{
+    r.addEventListener('change',()=>{document.getElementById('r-group-wrap').style.display=r.value==='admin'?'none':'block';});
+  });
+  // Firebase setup
+  const cfg=loadCfg();
+  if(!cfg){
+    document.getElementById('setup-overlay').style.display='flex';
+  } else {
+    initFirebase(cfg);
+  }
+})();
+</script>
+</body>
+</html>
